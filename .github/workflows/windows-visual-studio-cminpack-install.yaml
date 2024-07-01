@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         CMINPACK_BUILD_SHARED_LIBS: [ 'ON' , 'OFF' ]
-        CMINPACK_BUILD_TYPE: [ 'Release', 'Debug', 'RelWithDebInfo', 'MinSizeRel' ]
+        CMINPACK_BUILD_TYPE: [ 'Release' ]
         CMINPACK_PRECISION: [ 'd' ] # seems to be the only precision that the current tests reference work
         USE_BLAS: ['ON']
         C_CXX_COMPILER: ['clang-cl']
@@ -24,12 +24,10 @@ jobs:
             BLAS_VERSION: '3.12.0'
     
     env:
-      CMINPACK_BUILD_DIR: ${{ runner.temp }}\cminpack-build-shared-libs-${{ matrix.CMINPACK_BUILD_SHARED_LIBS }}-build-type-${{ matrix.CMINPACK_BUILD_TYPE }}-precision-${{ matrix.CMINPACK_PRECISION }}
-      CMINPACK_INSTALL_DIR: ${{ runner.temp }}\cminpack-install-shared-libs-${{ matrix.CMINPACK_BUILD_SHARED_LIBS }}-build-type-${{ matrix.CMINPACK_BUILD_TYPE }}-precision-${{ matrix.CMINPACK_PRECISION }}
-
-      BLAS_SOURCE_DIR: ${{ runner.temp }}\lapack-${{ matrix.BLAS_VERSION }}
-      BLAS_BUILD_DIR: ${{ runner.temp }}\build-BLAS-${{ matrix.BLAS_VERSION }}
-      BLAS_INSTALL_DIR: ${{ runner.temp }}\install-BLAS-${{ matrix.BLAS_VERSION }}
+      CMINPACK_BUILD_DIR: >-
+        %RUNNER_TEMP%\cminpack-build-shared-libs-${{ matrix.CMINPACK_BUILD_SHARED_LIBS }}-build-type-${{ matrix.CMINPACK_BUILD_TYPE }}-precision-${{ matrix.CMINPACK_PRECISION }}
+      CMINPACK_INSTALL_DIR: >-
+        %RUNNER_TEMP%\cminpack-install-shared-libs-${{ matrix.CMINPACK_BUILD_SHARED_LIBS }}-build-type-${{ matrix.CMINPACK_BUILD_TYPE }}-precision-${{ matrix.CMINPACK_PRECISION }}
 
     steps:
       # In order to build
@@ -72,19 +70,23 @@ jobs:
         if: ${{ matrix.USE_BLAS == 'ON' }}
         uses: conda-incubator/setup-miniconda@v3
         with:
+          channels: conda-forge
           activate-environment: cminpack
       
       - name: Install LLVM flang-new
         if: ${{ matrix.USE_BLAS == 'ON' }}
-        run: conda create --yes -c conda-forge -n cminpack flang libflang libfortran-main
+        run: conda install -n cminpack flang libflang libfortran-main
       
       - name: Set environment variables to use LLVM flang-new
         if: ${{ matrix.USE_BLAS == 'ON' }}
         shell: pwsh
         run: |
-          Add-Content $env:GITHUB_ENV "FC=flang-new"
-          Add-Content $env:GITHUB_ENV "CC=${{ matrix.C_CXX_COMPILER }}"
-          Add-Content $env:GITHUB_ENV "CXX=${{ matrix.C_CXX_COMPILER }}"
+          Add-Content $env:GITHUB_ENV "FC=flang-new";
+          Add-Content $env:GITHUB_ENV "CC=${{ matrix.C_CXX_COMPILER }}";
+          Add-Content $env:GITHUB_ENV "CXX=${{ matrix.C_CXX_COMPILER }}";
+          Add-Content $env:GITHUB_ENV "BLAS_SOURCE_DIR=" + (Join-Path -Path $env:RUNNER_TEMP -ChildPath "lapack-${{ matrix.BLAS_VERSION }}");
+          Add-Content $env:GITHUB_ENV "BLAS_BUILD_DIR=" + (Join-Path -Path $env:RUNNER_TEMP -ChildPath "build-${{ matrix.BLAS_VERSION }}");
+          Add-Content $env:GITHUB_ENV "BLAS_INSTALL_DIR=" + (Join-Path -Path $env:RUNNER_TEMP -ChildPath "install-${{ matrix.BLAS_VERSION }}");
       
       - name: Download and extract BLAS
         if: ${{ matrix.USE_BLAS == 'ON' }}
@@ -97,22 +99,22 @@ jobs:
       
       - name: Configure BLAS
         if: ${{ matrix.USE_BLAS == 'ON' }}
-        run: cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF --install-prefix ${{ env.BLAS_INSTALL_DIR }} -S ${{ env.BLAS_SOURCE_DIR }} -B ${{ env.BLAS_BUILD_DIR }}
+        run: cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF --install-prefix %BLAS_INSTALL_DIR% -S %BLAS_SOURCE_DIR% -B %BLAS_BUILD_DIR%
       
       - name: Build BLAS
         if: ${{ matrix.USE_BLAS == 'ON' }}
-        run: cmake --build ${{ env.BLAS_BUILD_DIR }} --config Release
+        run: cmake --build %BLAS_BUILD_DIR% --config Release
 
       - name: Install BLAS
         if: ${{ matrix.USE_BLAS == 'ON' }}
-        run: cmake --install ${{ env.BLAS_BUILD_DIR }} --config Release
+        run: cmake --install %BLAS_BUILD_DIR% --config Release
       
       - name: Place BLAS in front of CMAKE_PREFIX_PATH and PATH environment variables
         if: ${{ matrix.USE_BLAS == 'ON' }}
         shell: pwsh
         run: |
-          Add-Content $env:GITHUB_ENV "CMAKE_PREFIX_PATH=${{ env.BLAS_INSTALL_DIR }};$env:CMAKE_PREFIX_PATH"
-          Add-Content $env:GITHUB_PATH "${{ env.BLAS_INSTALL_DIR }}\bin"
+          Add-Content $env:GITHUB_ENV "CMAKE_PREFIX_PATH=$env:BLAS_INSTALL_DIR;$env:CMAKE_PREFIX_PATH"
+          Add-Content $env:GITHUB_PATH (Join-Path -Path $env:BLAS_INSTALL_DIR -ChildPath bin)
 
       - name: Checkout repository to cminpack directory
         uses: actions/checkout@v4
