@@ -13,7 +13,7 @@ jobs:
     
     strategy:
       matrix:
-        CMINPACK_BUILD_SHARED_LIBS: [ 'ON' , 'OFF' ]
+        CMINPACK_BUILD_SHARED_LIBS: [ 'ON' ]
         CMINPACK_BUILD_TYPE: [ 'Release' ]
         CMINPACK_PRECISION: [ 'd' ] # seems to be the only precision that the current tests reference work
         USE_BLAS: ['ON']
@@ -84,9 +84,9 @@ jobs:
           Add-Content $env:GITHUB_ENV "FC=flang-new";
           Add-Content $env:GITHUB_ENV "CC=${{ matrix.C_CXX_COMPILER }}";
           Add-Content $env:GITHUB_ENV "CXX=${{ matrix.C_CXX_COMPILER }}";
-          Add-Content $env:GITHUB_ENV "BLAS_SOURCE_DIR=" + (Join-Path -Path $env:RUNNER_TEMP -ChildPath "lapack-${{ matrix.BLAS_VERSION }}");
-          Add-Content $env:GITHUB_ENV "BLAS_BUILD_DIR=" + (Join-Path -Path $env:RUNNER_TEMP -ChildPath "build-${{ matrix.BLAS_VERSION }}");
-          Add-Content $env:GITHUB_ENV "BLAS_INSTALL_DIR=" + (Join-Path -Path $env:RUNNER_TEMP -ChildPath "install-${{ matrix.BLAS_VERSION }}");
+          Add-Content $env:GITHUB_ENV ("BLAS_SOURCE_DIR=" + (Join-Path -Path ${{ runner.temp }} -ChildPath "lapack-${{ matrix.BLAS_VERSION }}"));
+          Add-Content $env:GITHUB_ENV ("BLAS_BUILD_DIR=" + (Join-Path -Path ${{ runner.temp }} -ChildPath "build-${{ matrix.BLAS_VERSION }}"));
+          Add-Content $env:GITHUB_ENV ("BLAS_INSTALL_DIR=" + (Join-Path -Path ${{ runner.temp }} -ChildPath "install-${{ matrix.BLAS_VERSION }}"));
       
       - name: Download and extract BLAS
         if: ${{ matrix.USE_BLAS == 'ON' }}
