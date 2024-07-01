@@ -3,31 +3,19 @@ run-name: MSVC - Build, test and install cminpack on Windows through CMake
 on: [push, pull_request]
 
 jobs:
-  cminpack-visual-studio:
-    name: cminpack (MSVC ABI-compatible toolchain + CMake)
+  build-BLAS:
+    name: Build BLAS with MSVC ABI-compatible toolchain
     runs-on: windows-latest
-    
+
     defaults:
       run:
-        shell: cmd
-    
-    strategy:
-      matrix:
-        CMINPACK_BUILD_SHARED_LIBS: [ 'ON' ]
-        CMINPACK_BUILD_TYPE: [ 'Release' ]
-        CMINPACK_PRECISION: [ 'd' ] # seems to be the only precision that the current tests reference work
-        USE_BLAS: ['ON']
-        C_CXX_COMPILER: ['clang-cl']
-
-        include:
-          - USE_BLAS: 'ON'
-            BLAS_VERSION: '3.12.0'
+        # we are going to use the newest PowerShell
+        # available from the Windows runner
+        # as default shell
+        shell: pwsh
     
     env:
-      CMINPACK_BUILD_DIR: >-
-        %RUNNER_TEMP%\cminpack-build-shared-libs-${{ matrix.CMINPACK_BUILD_SHARED_LIBS }}-build-type-${{ matrix.CMINPACK_BUILD_TYPE }}-precision-${{ matrix.CMINPACK_PRECISION }}
-      CMINPACK_INSTALL_DIR: >-
-        %RUNNER_TEMP%\cminpack-install-shared-libs-${{ matrix.CMINPACK_BUILD_SHARED_LIBS }}-build-type-${{ matrix.CMINPACK_BUILD_TYPE }}-precision-${{ matrix.CMINPACK_PRECISION }}
+      BLAS_VERSION: '3.12.0'
 
     steps:
       # In order to build
@@ -53,70 +41,96 @@ jobs:
       # we have to:
       #   - Install Ninja
       #   - Setup MSVC dev-prompt for miniconda
-      #   - Setup miniconda and
-      #     install LLVM flang-new compiler
-      #     from miniconda,
-      #     using conda-forge channel.
-      #     We also set conda environment
-      #     variables in the same step.
-      #   - Set environment variables
-      #     for CMake
+      #   - Setup miniconda
+      #     - Setup miniconda for powershell;
+      #     - Activate base environment;
+      #     - Install LLVM flang-new compiler from miniconda using conda-forge channel;
+      #     - Set conda environment variables.
+      #   - Set environment variables for CMake
 
       - name: Install Ninja
-        if: ${{ matrix.USE_BLAS == 'ON' }}
         run: choco install ninja
 
       - uses: ilammy/msvc-dev-cmd@v1
-        if: ${{ matrix.USE_BLAS == 'ON' }}
-        name: Setup MSVC for miniconda
+        name: Setup MSVC dev-prompt for miniconda
 
-      - name: Setup miniconda, install LLVM flang-new from conda-forge, and set conda specific environment variables
-        if: ${{ matrix.USE_BLAS == 'ON' }}
-        shell: pwsh
+      - name: Setup miniconda, activate base environment, install LLVM flang-new from conda-forge, and set conda specific environment variables
         run: |
           & "$env:CONDA\shell\condabin\conda-hook.ps1";
           conda activate "$env:CONDA";
           conda install --yes -c conda-forge -n base flang libflang libfortran-main;
           Get-ChildItem env: | Where-Object { $_.Name.ToLower().Contains("conda") -or $_.Value.ToLower().Contains("conda") } | ForEach-Object { Add-Content $env:GITHUB_ENV ($_.Name + "=" + $_.Value); }
-          
+      
       - name: Set environment variables for CMake
-        if: ${{ matrix.USE_BLAS == 'ON' }}
-        shell: pwsh
         run: |
           Add-Content $env:GITHUB_ENV "FC=flang-new";
-          Add-Content $env:GITHUB_ENV "CC=${{ matrix.C_CXX_COMPILER }}";
-          Add-Content $env:GITHUB_ENV "CXX=${{ matrix.C_CXX_COMPILER }}";
-          Add-Content $env:GITHUB_ENV ("BLAS_SOURCE_DIR=" + (Join-Path -Path ${{ runner.temp }} -ChildPath "lapack-${{ matrix.BLAS_VERSION }}"));
-          Add-Content $env:GITHUB_ENV ("BLAS_BUILD_DIR=" + (Join-Path -Path ${{ runner.temp }} -ChildPath "build-${{ matrix.BLAS_VERSION }}"));
-          Add-Content $env:GITHUB_ENV ("BLAS_INSTALL_DIR=" + (Join-Path -Path ${{ runner.temp }} -ChildPath "install-${{ matrix.BLAS_VERSION }}"));
+          Add-Content $env:GITHUB_ENV "CC=clang-cl";
+          Add-Content $env:GITHUB_ENV "CXX=clang-cl";
+          Add-Content $env:GITHUB_ENV ("BLAS_SOURCE_DIR=" + (Join-Path -Path ${{ runner.temp }} -ChildPath "lapack-${{ env.BLAS_VERSION }}"));
+          Add-Content $env:GITHUB_ENV ("BLAS_BUILD_DIR=" + (Join-Path -Path ${{ runner.temp }} -ChildPath "build-${{ env.BLAS_VERSION }}"));
+          Add-Content $env:GITHUB_ENV ("BLAS_INSTALL_DIR=" + (Join-Path -Path ${{ github.workspace }} -ChildPath "blas"));
       
       - name: Download and extract BLAS
-        if: ${{ matrix.USE_BLAS == 'ON' }}
-        shell: pwsh
         run: |
           $blas_zip_file = Join-Path $env:RUNNER_TEMP -ChildPath blas.zip;
           $ProgressPreference = 'SilentlyContinue';
-          Invoke-WebRequest -Uri https://github.com/Reference-LAPACK/lapack/archive/refs/tags/v${{ matrix.BLAS_VERSION }}.zip -OutFile $blas_zip_file;
+          Invoke-WebRequest -Uri https://github.com/Reference-LAPACK/lapack/archive/refs/tags/v${{ env.BLAS_VERSION }}.zip -OutFile $blas_zip_file;
           Expand-Archive -Path $blas_zip_file -DestinationPath $env:RUNNER_TEMP;
       
       - name: Configure BLAS
-        if: ${{ matrix.USE_BLAS == 'ON' }}
-        run: cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF --install-prefix %BLAS_INSTALL_DIR% -S %BLAS_SOURCE_DIR% -B %BLAS_BUILD_DIR%
+        run: cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF --install-prefix $env:BLAS_INSTALL_DIR -S $env:BLAS_SOURCE_DIR -B $env:BLAS_BUILD_DIR
       
       - name: Build BLAS
-        if: ${{ matrix.USE_BLAS == 'ON' }}
-        run: cmake --build %BLAS_BUILD_DIR% --config Release
+        run: cmake --build $env:BLAS_BUILD_DIR --config Release
 
       - name: Install BLAS
-        if: ${{ matrix.USE_BLAS == 'ON' }}
-        run: cmake --install %BLAS_BUILD_DIR% --config Release
+        run: cmake --install $env:BLAS_BUILD_DIR --config Release
       
-      - name: Place BLAS in front of CMAKE_PREFIX_PATH and PATH environment variables
+      - name: Upload the built BLAS library
+        uses: actions/upload-artifact@v4
+        with:
+          retention-days: 1
+          name: blas
+          path: blas # this is equal to environment variable "$env:BLAS_INSTALL_DIR" above
+
+  cminpack-MSVC-ABI-compatible:
+    name: cminpack (MSVC ABI-compatible toolchain + CMake)
+    runs-on: windows-latest
+    needs: build-BLAS
+    
+    defaults:
+      run:
+        shell: cmd
+    
+    strategy:
+      matrix:
+        CMINPACK_BUILD_SHARED_LIBS: [ 'ON' ]
+        CMINPACK_BUILD_TYPE: [ 'Release' ]
+        CMINPACK_PRECISION: [ 'd' ] # seems to be the only precision that the current tests reference work
+        USE_BLAS: ['ON']
+        C_CXX_COMPILER: ['cl']
+
+    env:
+      CMINPACK_BUILD_DIR: >-
+        %RUNNER_TEMP%\cminpack-build-shared-libs-${{ matrix.CMINPACK_BUILD_SHARED_LIBS }}-build-type-${{ matrix.CMINPACK_BUILD_TYPE }}-precision-${{ matrix.CMINPACK_PRECISION }}
+      CMINPACK_INSTALL_DIR: >-
+        %RUNNER_TEMP%\cminpack-install-shared-libs-${{ matrix.CMINPACK_BUILD_SHARED_LIBS }}-build-type-${{ matrix.CMINPACK_BUILD_TYPE }}-precision-${{ matrix.CMINPACK_PRECISION }}
+
+    steps:
+      - name: Download the built BLAS library
         if: ${{ matrix.USE_BLAS == 'ON' }}
-        shell: pwsh
+        uses: actions/download-artifact@v4
+        with:
+          name: blas
+      
+      - name: Extract the built BLAS library
+        if: ${{ matrix.USE_BLAS == 'ON' }}
         run: |
-          Add-Content $env:GITHUB_ENV "CMAKE_PREFIX_PATH=$env:BLAS_INSTALL_DIR;$env:CMAKE_PREFIX_PATH"
-          Add-Content $env:GITHUB_PATH (Join-Path -Path $env:BLAS_INSTALL_DIR -ChildPath bin)
+          "C:\Program Files\7-Zip\7z.exe" x blas.zip -o${{ github.workspace }}
+      
+      - name: Set CMAKE_PREFIX_PATH environment variable for CMake to account for BLAS
+        if: ${{ matrix.USE_BLAS == 'ON' }}
+        run: echo CMAKE_PREFIX_PATH=${{ github.workspace }}\blas >> %GITHUB_ENV%
 
       - name: Checkout repository to cminpack directory
         uses: actions/checkout@v4
