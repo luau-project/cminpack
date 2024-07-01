@@ -52,32 +52,34 @@ jobs:
       # To use LLVM flang-new compiler,
       # we have to:
       #   - Install Ninja
-      #   - Setup miniconda
-      #   - Install LLVM flang-new compiler
+      #   - Setup MSVC dev-prompt for miniconda
+      #   - Setup miniconda and
+      #     install LLVM flang-new compiler
       #     from miniconda,
       #     using conda-forge channel.
+      #     We also set conda environment
+      #     variables in the same step.
       #   - Set environment variables
-      #     for CMake:
-      #       -- FC: Fortran compiler
-      #       -- CC: C compiler
-      #       -- CXX: C++ compiler
+      #     for CMake
 
       - name: Install Ninja
         if: ${{ matrix.USE_BLAS == 'ON' }}
         run: choco install ninja
 
-      - name: Setup miniconda
+      - uses: ilammy/msvc-dev-cmd@v1
         if: ${{ matrix.USE_BLAS == 'ON' }}
-        uses: conda-incubator/setup-miniconda@v3
-        with:
-          channels: conda-forge
-          activate-environment: cminpack
-      
-      - name: Install LLVM flang-new
+        name: Setup MSVC for miniconda
+
+      - name: Setup miniconda, install LLVM flang-new from conda-forge, and set FC, CC and CXX environment variables.
         if: ${{ matrix.USE_BLAS == 'ON' }}
-        run: conda install -n cminpack flang libflang libfortran-main
-      
-      - name: Set environment variables to use LLVM flang-new
+        shell: pwsh
+        run: |
+          & "$env:CONDA\shell\condabin\conda-hook.ps1";
+          conda activate "$env:CONDA";
+          conda install --yes -c conda-forge -n base flang libflang libfortran-main;
+          Get-ChildItem env: | Where-Object { $_.Name.ToLower().Contains("conda") -or $_.Value.ToLower().Contains("conda") } | ForEach-Object { Add-Content $env:GITHUB_ENV ($_.Name + "=" + $_.Value); }
+          
+      - name: Set environment variables for CMake
         if: ${{ matrix.USE_BLAS == 'ON' }}
         shell: pwsh
         run: |
