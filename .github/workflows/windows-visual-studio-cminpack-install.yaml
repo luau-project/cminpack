@@ -127,6 +127,10 @@ jobs:
       - name: Set CMAKE_PREFIX_PATH environment variable for CMake to account for BLAS
         if: ${{ matrix.USE_BLAS == 'ON' }}
         run: echo CMAKE_PREFIX_PATH=${{ github.workspace }}\blas >> %GITHUB_ENV%
+      
+      - name: Place BLAS bin directory on system PATH environment variable to run tests
+        if: ${{ matrix.USE_BLAS == 'ON' }}
+        run: echo ${{ github.workspace }}\blas\bin;%PATH% >> %GITHUB_PATH%
 
       - name: Checkout repository to cminpack directory
         uses: actions/checkout@v4
