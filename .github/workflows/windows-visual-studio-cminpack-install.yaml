@@ -70,7 +70,7 @@ jobs:
         if: ${{ matrix.USE_BLAS == 'ON' }}
         name: Setup MSVC for miniconda
 
-      - name: Setup miniconda, install LLVM flang-new from conda-forge, and set FC, CC and CXX environment variables.
+      - name: Setup miniconda, install LLVM flang-new from conda-forge, and set conda specific environment variables
         if: ${{ matrix.USE_BLAS == 'ON' }}
         shell: pwsh
         run: |
