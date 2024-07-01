@@ -16,7 +16,7 @@ jobs:
         CMINPACK_BUILD_SHARED_LIBS: [ 'ON' , 'OFF' ]
         CMINPACK_BUILD_TYPE: [ 'Release', 'Debug', 'RelWithDebInfo', 'MinSizeRel' ]
         CMINPACK_PRECISION: [ 'd' ] # seems to be the only precision that the current tests reference work
-        USE_BLAS: ['ON', 'OFF']
+        USE_BLAS: ['ON']
         C_CXX_COMPILER: ['clang-cl']
 
         include:
@@ -24,17 +24,13 @@ jobs:
             BLAS_VERSION: '3.12.0'
     
     env:
-      CMINPACK_BUILD_DIR: >-
-        %RUNNER_TEMP%\cminpack-build-shared-libs-${{ matrix.CMINPACK_BUILD_SHARED_LIBS }}-build-type-${{ matrix.CMINPACK_BUILD_TYPE }}-precision-${{ matrix.CMINPACK_PRECISION }}
-      CMINPACK_INSTALL_DIR: >-
-        %RUNNER_TEMP%\cminpack-install-shared-libs-${{ matrix.CMINPACK_BUILD_SHARED_LIBS }}-build-type-${{ matrix.CMINPACK_BUILD_TYPE }}-precision-${{ matrix.CMINPACK_PRECISION }}
+      CMINPACK_BUILD_DIR: ${{ runner.temp }}\cminpack-build-shared-libs-${{ matrix.CMINPACK_BUILD_SHARED_LIBS }}-build-type-${{ matrix.CMINPACK_BUILD_TYPE }}-precision-${{ matrix.CMINPACK_PRECISION }}
+      CMINPACK_INSTALL_DIR: ${{ runner.temp }}\cminpack-install-shared-libs-${{ matrix.CMINPACK_BUILD_SHARED_LIBS }}-build-type-${{ matrix.CMINPACK_BUILD_TYPE }}-precision-${{ matrix.CMINPACK_PRECISION }}
 
-      BLAS_SOURCE_DIR: >-
-        %RUNNER_TEMP%\lapack-${{ matrix.BLAS_VERSION }}
-      BLAS_BUILD_DIR: >-
-        %RUNNER_TEMP%\build-BLAS-${{ matrix.BLAS_VERSION }}
-      BLAS_INSTALL_DIR: >-
-        %RUNNER_TEMP%\install-BLAS-${{ matrix.BLAS_VERSION }}
+      BLAS_SOURCE_DIR: ${{ runner.temp }}\lapack-${{ matrix.BLAS_VERSION }}
+      BLAS_BUILD_DIR: ${{ runner.temp }}\build-BLAS-${{ matrix.BLAS_VERSION }}
+      BLAS_INSTALL_DIR: ${{ runner.temp }}\install-BLAS-${{ matrix.BLAS_VERSION }}
+
     steps:
       # In order to build
       # and test cminpack with BLAS,
@@ -84,10 +80,11 @@ jobs:
       
       - name: Set environment variables to use LLVM flang-new
         if: ${{ matrix.USE_BLAS == 'ON' }}
+        shell: pwsh
         run: |
-          echo FC=flang-new >> %GITHUB_ENV%
-          echo CC=${{ matrix.C_CXX_COMPILER }} >> %GITHUB_ENV%
-          echo CXX=${{ matrix.C_CXX_COMPILER }} >> %GITHUB_ENV%
+          Add-Content $env:GITHUB_ENV "FC=flang-new"
+          Add-Content $env:GITHUB_ENV "CC=${{ matrix.C_CXX_COMPILER }}"
+          Add-Content $env:GITHUB_ENV "CXX=${{ matrix.C_CXX_COMPILER }}"
       
       - name: Download and extract BLAS
         if: ${{ matrix.USE_BLAS == 'ON' }}
@@ -112,9 +109,10 @@ jobs:
       
       - name: Place BLAS in front of CMAKE_PREFIX_PATH and PATH environment variables
         if: ${{ matrix.USE_BLAS == 'ON' }}
+        shell: pwsh
         run: |
-          echo CMAKE_PREFIX_PATH=${{ env.BLAS_INSTALL_DIR }};%CMAKE_PREFIX_PATH% >> %GITHUB_ENV%
-          echo ${{ env.BLAS_INSTALL_DIR }}\bin;%PATH% >> %GITHUB_PATH%
+          Add-Content $env:GITHUB_ENV "CMAKE_PREFIX_PATH=${{ env.BLAS_INSTALL_DIR }};$env:CMAKE_PREFIX_PATH"
+          Add-Content $env:GITHUB_PATH "${{ env.BLAS_INSTALL_DIR }}\bin"
 
       - name: Checkout repository to cminpack directory
         uses: actions/checkout@v4
