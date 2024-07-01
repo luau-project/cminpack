@@ -93,8 +93,8 @@ jobs:
           name: blas
           path: blas # this is equal to environment variable "$env:BLAS_INSTALL_DIR" above
 
-  cminpack-MSVC-ABI-compatible:
-    name: cminpack (MSVC ABI-compatible toolchain + CMake)
+  cminpack-visual-studio:
+    name: cminpack (MSVC toolchain + CMake)
     runs-on: windows-latest
     needs: build-BLAS
     
@@ -104,11 +104,10 @@ jobs:
     
     strategy:
       matrix:
-        CMINPACK_BUILD_SHARED_LIBS: [ 'ON' ]
-        CMINPACK_BUILD_TYPE: [ 'Release' ]
+        CMINPACK_BUILD_SHARED_LIBS: [ 'ON' , 'OFF' ]
+        CMINPACK_BUILD_TYPE: [ 'Release', 'Debug', 'RelWithDebInfo', 'MinSizeRel' ]
         CMINPACK_PRECISION: [ 'd' ] # seems to be the only precision that the current tests reference work
-        USE_BLAS: ['ON']
-        C_CXX_COMPILER: ['cl']
+        USE_BLAS: ['ON', 'OFF']
 
     env:
       CMINPACK_BUILD_DIR: >-
