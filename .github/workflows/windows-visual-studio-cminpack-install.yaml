@@ -122,11 +122,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: blas
-      
-      - name: Extract the built BLAS library
-        if: ${{ matrix.USE_BLAS == 'ON' }}
-        run: |
-          "C:\Program Files\7-Zip\7z.exe" x blas.zip -o${{ github.workspace }}
+          path: ${{ github.workspace }}
       
       - name: Set CMAKE_PREFIX_PATH environment variable for CMake to account for BLAS
         if: ${{ matrix.USE_BLAS == 'ON' }}
