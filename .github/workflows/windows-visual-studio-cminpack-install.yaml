@@ -17,11 +17,19 @@ jobs:
         CMINPACK_BUILD_TYPE: [ 'Release', 'Debug' ]
         CMINPACK_PRECISION: [ 'd' ] # seems to be the only precision that the current tests reference work
         USE_BLAS: ['OFF']
-        
+        COMPILER: ['cl', 'clang-cl']
+
         include:
           - CMINPACK_BUILD_SHARED_LIBS: 'ON'
             CMINPACK_BUILD_TYPE: 'Release'
             CMINPACK_PRECISION: 'd'
+            COMPILER: 'cl'
+            USE_BLAS: 'ON'
+          
+          - CMINPACK_BUILD_SHARED_LIBS: 'ON'
+            CMINPACK_BUILD_TYPE: 'Release'
+            CMINPACK_PRECISION: 'd'
+            COMPILER: 'clang-cl'
             USE_BLAS: 'ON'
 
     env:
@@ -29,6 +37,15 @@ jobs:
       BLAS_VERSION: "0.3.27"
 
     steps:
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        name: Setup MSVC dev-prompt
+      
+      # Do not add spaces before '>>'
+      - name: Set CC and CXX environment variables
+        run: |
+          echo CC=${{ matrix.COMPILER }}>> ${{ github.env }}
+          echo CXX=${{ matrix.COMPILER }}>> ${{ github.env }}
 
       - name: Download and extract BLAS source code
         if: ${{ matrix.USE_BLAS == 'ON' }}
