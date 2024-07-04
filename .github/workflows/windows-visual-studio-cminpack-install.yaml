@@ -41,12 +41,6 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
         name: Setup MSVC dev-prompt
       
-      # Do not add spaces before '>>'
-      - name: Set CC and CXX environment variables
-        run: |
-          echo CC=${{ matrix.COMPILER }}>> ${{ github.env }}
-          echo CXX=${{ matrix.COMPILER }}>> ${{ github.env }}
-
       - name: Download and extract BLAS source code
         if: ${{ matrix.USE_BLAS == 'ON' }}
         run: |
@@ -63,7 +57,7 @@ jobs:
 
       - name: Configure BLAS
         if: ${{ matrix.USE_BLAS == 'ON' }}
-        run: cmake -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF --install-prefix ${{ env.BLAS_INSTALL_DIR }} -S ${{ env.BLAS_SOURCE_DIR }} -B ${{ env.BLAS_BUILD_DIR }}
+        run: cmake -DCMAKE_C_COMPILER=${{ matrix.COMPILER }} -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF --install-prefix ${{ env.BLAS_INSTALL_DIR }} -S ${{ env.BLAS_SOURCE_DIR }} -B ${{ env.BLAS_BUILD_DIR }}
 
       - name: Build BLAS
         if: ${{ matrix.USE_BLAS == 'ON' }}
@@ -95,7 +89,7 @@ jobs:
           echo CMINPACK_INSTALL_DIR=${{ runner.temp }}\cminpack-install>> ${{ github.env }}
 
       - name: Configure cminpack build
-        run: cmake -DBUILD_SHARED_LIBS=${{ matrix.CMINPACK_BUILD_SHARED_LIBS }} -DCMAKE_BUILD_TYPE=${{ matrix.CMINPACK_BUILD_TYPE }} -DCMINPACK_PRECISION=${{ matrix.CMINPACK_PRECISION }} -DUSE_BLAS=${{ matrix.USE_BLAS }} --install-prefix ${{ env.CMINPACK_INSTALL_DIR }} -S cminpack -B ${{ env.CMINPACK_BUILD_DIR }}
+        run: cmake -DCMAKE_C_COMPILER=${{ matrix.COMPILER }} -DBUILD_SHARED_LIBS=${{ matrix.CMINPACK_BUILD_SHARED_LIBS }} -DCMAKE_BUILD_TYPE=${{ matrix.CMINPACK_BUILD_TYPE }} -DCMINPACK_PRECISION=${{ matrix.CMINPACK_PRECISION }} -DUSE_BLAS=${{ matrix.USE_BLAS }} --install-prefix ${{ env.CMINPACK_INSTALL_DIR }} -S cminpack -B ${{ env.CMINPACK_BUILD_DIR }}
       
       - name: Build cminpack
         run: cmake --build ${{ env.CMINPACK_BUILD_DIR }} --config ${{ matrix.CMINPACK_BUILD_TYPE }}
